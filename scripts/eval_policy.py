@@ -35,12 +35,13 @@ def evaluate(args):
 
     episode_returns = []
     episode_lengths = []
+    episode_successes = []
     frames = []
 
     for episode in range(args.episodes):
         obs, info = env.reset(seed=args.seed + episode)
         episode_return = 0.0
-        stable_frames = 0
+        healthy_frames = 0
 
         for step in range(args.max_episode_steps):
             if model is None:
@@ -50,7 +51,7 @@ def evaluate(args):
 
             obs, reward, terminated, truncated, info = env.step(action)
             episode_return += float(reward)
-            stable_frames = stable_frames + 1 if info["tip_height"] > args.stable_height else 0
+            healthy_frames = healthy_frames + 1 if info["is_healthy"] else 0
 
             if args.output and episode == 0 and step % args.render_every == 0:
                 frame = env.render()
@@ -64,7 +65,9 @@ def evaluate(args):
                         "reward": float(reward),
                         "tip_height": info["tip_height"],
                         "cart_x": info["cart_x"],
-                        "stable_frames": stable_frames,
+                        "uprightness": info["uprightness"],
+                        "is_healthy": info["is_healthy"],
+                        "healthy_frames": healthy_frames,
                         "policy_name": policy_name,
                     },
                 )
@@ -73,6 +76,7 @@ def evaluate(args):
             if terminated or truncated:
                 episode_lengths.append(step + 1)
                 episode_returns.append(episode_return)
+                episode_successes.append(bool(info["success"]))
                 break
 
     env.close()
@@ -80,6 +84,7 @@ def evaluate(args):
     print(f"episodes: {len(episode_returns)}")
     print(f"mean_return: {np.mean(episode_returns):.3f}")
     print(f"mean_length: {np.mean(episode_lengths):.1f}")
+    print(f"success_rate: {np.mean(episode_successes):.3f}")
 
     if args.output:
         output = ROOT / args.output
@@ -100,7 +105,6 @@ def main():
     parser.add_argument("--render-every", type=int, default=1)
     parser.add_argument("--width", type=int, default=1280)
     parser.add_argument("--height", type=int, default=720)
-    parser.add_argument("--stable-height", type=float, default=1.25)
     evaluate(parser.parse_args())
 
 

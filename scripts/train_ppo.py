@@ -5,6 +5,7 @@ import argparse
 import os
 import pathlib
 import platform
+import subprocess
 import sys
 
 os.environ.setdefault("MUJOCO_GL", "glfw" if platform.system() == "Darwin" else "egl")
@@ -20,7 +21,19 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from seven_cartpole import SevenPendulumCartpoleEnv
+from seven_cartpole.callbacks import TrainingVideoCallback
 from seven_cartpole.env import EnvConfig
+
+
+def sync_to_gcs(run_dir: pathlib.Path, gcs_path: str | None, run_name: str) -> None:
+    if not gcs_path:
+        return
+    destination = f"{gcs_path.rstrip('/')}/{run_name}"
+    subprocess.run(
+        ["gcloud", "storage", "rsync", "-r", str(run_dir), destination],
+        check=True,
+    )
+    print(f"Synced run outputs to {destination}")
 
 
 def make_env(max_episode_steps: int, init_angle_noise: float):
@@ -36,9 +49,11 @@ def train(args):
     checkpoint_dir = run_dir / "checkpoints"
     best_dir = run_dir / "best"
     log_dir = run_dir / "tensorboard"
+    video_dir = run_dir / "videos"
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
     best_dir.mkdir(parents=True, exist_ok=True)
     log_dir.mkdir(parents=True, exist_ok=True)
+    video_dir.mkdir(parents=True, exist_ok=True)
 
     env = make_vec_env(
         make_env(args.max_episode_steps, args.init_angle_noise),
@@ -99,6 +114,19 @@ def train(args):
             deterministic=True,
         ),
     ]
+    if args.video_freq > 0:
+        callbacks.append(
+            TrainingVideoCallback(
+                video_dir=video_dir,
+                video_freq=args.video_freq,
+                max_episode_steps=args.video_max_episode_steps,
+                init_angle_noise=args.init_angle_noise,
+                fps=args.video_fps,
+                width=args.video_width,
+                height=args.video_height,
+                seed=args.seed + 10_000,
+            )
+        )
 
     model.learn(
         total_timesteps=args.total_steps,
@@ -107,6 +135,7 @@ def train(args):
         reset_num_timesteps=not bool(args.load),
     )
     model.save(run_dir / "final_model")
+    sync_to_gcs(run_dir, args.gcs_path, args.run_name)
     env.close()
     eval_env.close()
     print(f"Wrote run outputs to {run_dir}")
@@ -137,6 +166,12 @@ def main():
     parser.add_argument("--checkpoint-freq", type=int, default=100_000)
     parser.add_argument("--eval-freq", type=int, default=50_000)
     parser.add_argument("--eval-episodes", type=int, default=5)
+    parser.add_argument("--video-freq", type=int, default=100_000)
+    parser.add_argument("--video-max-episode-steps", type=int, default=500)
+    parser.add_argument("--video-fps", type=int, default=50)
+    parser.add_argument("--video-width", type=int, default=1280)
+    parser.add_argument("--video-height", type=int, default=720)
+    parser.add_argument("--gcs-path", default=None, help="Optional gs:// bucket prefix to sync run outputs after training.")
     train(parser.parse_args())
 
 

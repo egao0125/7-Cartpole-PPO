@@ -12,7 +12,8 @@ def draw_hud(frame: np.ndarray, stats: dict) -> np.ndarray:
         f"step: {stats['step']}   sim: {stats['sim_time']:.2f}s   action: {stats['action']:+.2f}",
         f"return: {stats['episode_return']:.3f}   reward: {stats['reward']:.3f}",
         f"tip height: {stats['tip_height']:.3f}   cart x: {stats['cart_x']:+.3f}",
-        f"stable frames: {stats['stable_frames']}   policy: {stats['policy_name']}",
+        f"uprightness: {stats['uprightness']:.3f}   healthy: {stats['is_healthy']}",
+        f"healthy frames: {stats['healthy_frames']}   policy: {stats['policy_name']}",
     ]
     pad = 14
     line_h = 19

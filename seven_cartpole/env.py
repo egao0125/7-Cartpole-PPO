@@ -23,8 +23,9 @@ class EnvConfig:
     init_angle_noise: float = 0.025
     init_velocity_noise: float = 0.005
     cart_limit: float = 2.15
-    terminate_on_low_tip_after_steps: int = 150
-    min_tip_height: float = 0.45
+    health_warmup_steps: int = 50
+    min_tip_height: float = 1.65
+    min_uprightness: float = 0.65
     reward_weights: RewardWeights = RewardWeights()
 
 
@@ -90,7 +91,7 @@ class SevenPendulumCartpoleEnv(gym.Env):
         reward, reward_terms = self._reward(action_scalar)
         terminated = self._terminated()
         truncated = self._step_count >= self.config.max_episode_steps
-        info = self._info(action=action_scalar, reward_terms=reward_terms)
+        info = self._info(action=action_scalar, reward_terms=reward_terms, truncated=truncated)
         return obs, reward, terminated, truncated, info
 
     def render(self):
@@ -128,6 +129,7 @@ class SevenPendulumCartpoleEnv(gym.Env):
         return obs.astype(np.float32)
 
     def _reward(self, action: float):
+        health = self._health()
         return shaped_reward(
             tip_height=self.tip_height,
             cart_x=float(self.data.qpos[0]),
@@ -135,17 +137,20 @@ class SevenPendulumCartpoleEnv(gym.Env):
             angles=np.asarray(self.data.qpos[1:], dtype=np.float64),
             angular_velocities=np.asarray(self.data.qvel[1:], dtype=np.float64),
             action=action,
+            healthy=health["is_healthy"],
             weights=self.config.reward_weights,
         )
 
     def _terminated(self):
-        if abs(float(self.data.qpos[0])) > self.config.cart_limit:
+        health = self._health()
+        if not health["finite"] or not health["cart_ok"]:
             return True
-        if self._step_count > self.config.terminate_on_low_tip_after_steps and self.tip_height < self.config.min_tip_height:
+        if self._step_count > self.config.health_warmup_steps and not health["is_healthy"]:
             return True
         return False
 
-    def _info(self, *, action: float, reward_terms: dict[str, float]):
+    def _info(self, *, action: float, reward_terms: dict[str, float], truncated: bool = False):
+        health = self._health()
         return {
             "step": self._step_count,
             "sim_time": float(self.data.time),
@@ -153,7 +158,34 @@ class SevenPendulumCartpoleEnv(gym.Env):
             "cart_x": float(self.data.qpos[0]),
             "cart_v": float(self.data.qvel[0]),
             "tip_height": self.tip_height,
+            "uprightness": health["uprightness"],
+            "is_healthy": health["is_healthy"],
+            "health": health,
+            "success": bool(truncated and health["is_healthy"]),
             "reward_terms": reward_terms,
+        }
+
+    def _health(self):
+        qpos = np.asarray(self.data.qpos, dtype=np.float64)
+        qvel = np.asarray(self.data.qvel, dtype=np.float64)
+        angles = qpos[1:]
+        uprightness = float(np.mean(np.cos(angles)))
+        finite = bool(np.isfinite(qpos).all() and np.isfinite(qvel).all())
+        cart_ok = abs(float(qpos[0])) <= self.config.cart_limit
+        tip_ok = self.tip_height >= self.config.min_tip_height
+        posture_ok = uprightness >= self.config.min_uprightness
+        is_healthy = finite and cart_ok and tip_ok and posture_ok
+        return {
+            "finite": finite,
+            "cart_ok": cart_ok,
+            "tip_ok": tip_ok,
+            "posture_ok": posture_ok,
+            "is_healthy": is_healthy,
+            "uprightness": uprightness,
+            "tip_height": self.tip_height,
+            "cart_limit": self.config.cart_limit,
+            "min_tip_height": self.config.min_tip_height,
+            "min_uprightness": self.config.min_uprightness,
         }
 
     def _tip_xz(self):
