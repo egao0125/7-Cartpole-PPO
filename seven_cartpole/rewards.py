@@ -27,11 +27,11 @@ class SwingUpRewardWeights:
     healthy_hold: float = 2.0
     cart_position: float = 0.15
     action_when_low: float = 0.0
-    action_when_high: float = 0.05
-    cart_velocity_when_high: float = 0.10
-    tip_speed_when_high: float = 0.30
-    angular_velocity_when_low: float = 0.004
-    angular_velocity_when_high: float = 0.08
+    action_when_high: float = 0.04
+    cart_velocity_when_high: float = 0.06
+    tip_speed_when_high: float = 0.18
+    angular_velocity_when_low: float = 0.001
+    angular_velocity_when_high: float = 0.04
 
 
 def shaped_reward(

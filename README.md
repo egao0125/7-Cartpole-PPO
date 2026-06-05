@@ -138,7 +138,7 @@ Failure:
 
 ```text
 cart out of bounds or non-finite state: terminate immediately
-violent spin: terminate immediately
+extreme violent spin: terminate immediately
 swingup: tip/posture unhealthy is allowed so the policy can recover
 swingup: low, nearly motionless dead-hang state resets after a warmup window
 balance: tip/posture unhealthy terminates after the warmup period
@@ -180,7 +180,7 @@ swingup reward =
   - light_angular_velocity_penalty_while_low
 ```
 
-The key distinction is that swing-up does not punish being down early, but it no longer permits arbitrary spinning. It rewards pumping energy into the system while low, applies a light angular-velocity cost throughout the episode, and becomes strongly conservative once the chain is near upright. Once high, the reward stops paying for upward motion and starts penalizing tip speed, cart speed, action magnitude, and joint angular velocity so the policy learns to catch and damp the chain instead of endlessly swinging. The cart still has a hard track limit; crossing that bound resets the episode. A failed attempt that falls back to a low, nearly static dead-hang also resets so training does not spend long rollouts doing nothing.
+The key distinction is that swing-up does not punish being down early, but it no longer permits arbitrary spinning. The MuJoCo hinges include physical damping, the reward applies a light angular-velocity cost throughout the episode, and the environment resets only extreme spin states. Once high, the reward stops paying for upward motion and starts penalizing tip speed, cart speed, action magnitude, and joint angular velocity so the policy learns to catch and damp the chain instead of endlessly swinging. The cart still has a hard track limit; crossing that bound resets the episode. A failed attempt that falls back to a low, nearly static dead-hang also resets so training does not spend long rollouts doing nothing.
 
 ## Evaluate
 

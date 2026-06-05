@@ -30,8 +30,8 @@ class EnvConfig:
     max_healthy_tip_speed: float = 0.8
     max_healthy_cart_speed: float = 0.7
     max_healthy_angular_velocity: float = 3.0
-    max_safe_tip_speed: float = 8.0
-    max_safe_angular_velocity: float = 20.0
+    max_safe_tip_speed: float = 15.0
+    max_safe_angular_velocity: float = 60.0
     success_hold_steps: int = 100
     swingup_stuck_warmup_steps: int = 150
     swingup_stuck_reset_steps: int = 125
