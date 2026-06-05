@@ -134,6 +134,7 @@ Failure:
 ```text
 cart out of bounds or non-finite state: terminate immediately
 swingup: tip/posture unhealthy is allowed so the policy can recover
+swingup: low, nearly motionless dead-hang state resets after a warmup window
 balance: tip/posture unhealthy terminates after the warmup period
 ```
 
@@ -172,7 +173,7 @@ swingup reward =
   - stabilization_action/velocity_penalties_only_when_high
 ```
 
-The key distinction is that swing-up does not punish being down early. It rewards pumping energy into the system and only becomes conservative once the chain is near upright. The cart still has a hard track limit; crossing that bound resets the episode.
+The key distinction is that swing-up does not punish being down early. It rewards pumping energy into the system and only becomes conservative once the chain is near upright. The cart still has a hard track limit; crossing that bound resets the episode. A failed attempt that falls back to a low, nearly static dead-hang also resets so training does not spend long rollouts doing nothing.
 
 ## Evaluate
 

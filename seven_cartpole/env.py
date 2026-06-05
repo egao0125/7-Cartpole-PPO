@@ -28,6 +28,11 @@ class EnvConfig:
     min_tip_height: float = 3.0
     min_uprightness: float = 0.65
     success_hold_steps: int = 100
+    swingup_stuck_warmup_steps: int = 150
+    swingup_stuck_reset_steps: int = 125
+    swingup_stuck_height_fraction: float = 0.25
+    swingup_stuck_tip_speed: float = 0.08
+    swingup_stuck_cart_speed: float = 0.03
     reward_weights: RewardWeights = RewardWeights()
     swingup_reward_weights: SwingUpRewardWeights = SwingUpRewardWeights()
 
@@ -67,6 +72,8 @@ class SevenPendulumCartpoleEnv(gym.Env):
         self._previous_tip_height = 0.0
         self._reward_min_tip_height, self._reward_max_tip_height = self._tip_height_bounds()
         self._last_tip_xz = np.zeros(2, dtype=np.float64)
+        self._last_tip_speed = 0.0
+        self._swingup_stuck_steps = 0
 
     def reset(self, *, seed: int | None = None, options: dict | None = None):
         super().reset(seed=seed)
@@ -93,6 +100,8 @@ class SevenPendulumCartpoleEnv(gym.Env):
         self._healthy_streak = 0
         self._previous_tip_height = self.tip_height
         self._last_tip_xz = self._tip_xz()
+        self._last_tip_speed = 0.0
+        self._swingup_stuck_steps = 0
         return self._get_obs(), self._info(action=0.0, reward_terms={})
 
     def step(self, action):
@@ -108,6 +117,7 @@ class SevenPendulumCartpoleEnv(gym.Env):
         reward, reward_terms = self._reward(action_scalar)
         health = self._health()
         self._healthy_streak = self._healthy_streak + 1 if health["is_healthy"] else 0
+        self._update_swingup_stuck_state()
         terminated = self._terminated()
         truncated = self._step_count >= self.config.max_episode_steps
         info = self._info(action=action_scalar, reward_terms=reward_terms, truncated=truncated)
@@ -134,6 +144,7 @@ class SevenPendulumCartpoleEnv(gym.Env):
         tip_xz = self._tip_xz()
         tip_velocity_xz = (tip_xz - self._last_tip_xz) / (self.model.opt.timestep * self.config.frame_skip)
         self._last_tip_xz = tip_xz.copy()
+        self._last_tip_speed = float(np.linalg.norm(tip_velocity_xz))
 
         obs = np.concatenate(
             [
@@ -180,7 +191,7 @@ class SevenPendulumCartpoleEnv(gym.Env):
         if not health["finite"] or not health["cart_ok"]:
             return True
         if self.config.task == "swingup":
-            return False
+            return self._swingup_is_stuck()
         if self._step_count > self.config.health_warmup_steps and not health["is_healthy"]:
             return True
         return False
@@ -198,6 +209,7 @@ class SevenPendulumCartpoleEnv(gym.Env):
             "is_healthy": health["is_healthy"],
             "healthy_streak": self._healthy_streak,
             "health": health,
+            "swingup_stuck_steps": self._swingup_stuck_steps,
             "success": self._success(truncated=truncated, healthy=health["is_healthy"]),
             "reward_terms": reward_terms,
         }
@@ -230,6 +242,29 @@ class SevenPendulumCartpoleEnv(gym.Env):
         if self.config.task == "swingup":
             return bool(self._healthy_streak >= self.config.success_hold_steps)
         return bool(truncated and healthy)
+
+    def _update_swingup_stuck_state(self):
+        if self.config.task != "swingup" or self._step_count < self.config.swingup_stuck_warmup_steps:
+            self._swingup_stuck_steps = 0
+            return
+
+        if self._normalized_tip_height() > self.config.swingup_stuck_height_fraction:
+            self._swingup_stuck_steps = 0
+            return
+
+        cart_speed = abs(float(self.data.qvel[0]))
+        stuck = (
+            self._last_tip_speed <= self.config.swingup_stuck_tip_speed
+            and cart_speed <= self.config.swingup_stuck_cart_speed
+        )
+        self._swingup_stuck_steps = self._swingup_stuck_steps + 1 if stuck else 0
+
+    def _swingup_is_stuck(self):
+        return self._swingup_stuck_steps >= self.config.swingup_stuck_reset_steps
+
+    def _normalized_tip_height(self):
+        height_range = max(self._reward_max_tip_height - self._reward_min_tip_height, 1e-6)
+        return float(np.clip((self.tip_height - self._reward_min_tip_height) / height_range, 0.0, 1.0))
 
     def _tip_xz(self):
         tip = self.data.site_xpos[self.tip_site_id]
