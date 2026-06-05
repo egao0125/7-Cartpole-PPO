@@ -13,6 +13,22 @@ RUN_NAME="${RUN_NAME:-ppo_7link_gpu}"
 TOTAL_STEPS="${TOTAL_STEPS:-1000000}"
 N_ENVS="${N_ENVS:-16}"
 
+if ! command -v gcloud >/dev/null 2>&1; then
+  cat >&2 <<'EOF'
+Error: gcloud was not found.
+
+Run this script from Google Cloud Shell:
+  https://console.cloud.google.com/
+
+Click the Cloud Shell terminal icon, then run:
+  git clone https://github.com/egao0125/7-Cartpole-PPO.git
+  cd 7-Cartpole-PPO
+
+Or install the Google Cloud CLI locally if you intentionally want to manage GCP from this machine.
+EOF
+  exit 127
+fi
+
 gcloud config set project "$PROJECT"
 
 if ! gcloud storage buckets describe "gs://${BUCKET}" >/dev/null 2>&1; then
