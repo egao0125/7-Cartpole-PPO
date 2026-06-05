@@ -1,6 +1,6 @@
-# 7-Link MuJoCo Cart-Pole PPO
+# 7-Link MuJoCo Cart-Pole PPO Swing-Up
 
-This repo trains and evaluates a 7-link MuJoCo cart-pole controller with PPO.
+This repo trains and evaluates a 7-link MuJoCo cart-pole swing-up controller with PPO.
 
 ## Setup
 
@@ -23,6 +23,21 @@ python3 run_seven_cartpole.py --mode video --duration 8
 The script writes `seven_pendulum_cartpole.mp4`.
 
 ## PPO Training
+
+The default task is now `swingup`:
+
+```text
+start: first link hanging down
+goal: swing the full chain upward
+success: hold the upright health condition for 100 consecutive RL steps
+failure: cart leaves bounds or simulation state becomes invalid
+```
+
+The old near-upright balancing setup is still available with:
+
+```bash
+python3 scripts/train_ppo.py --task balance ...
+```
 
 The environment uses a 27-value observation:
 
@@ -110,7 +125,7 @@ The environment uses one shared health definition for reward, termination, and e
 healthy =
   all MuJoCo state values are finite
   and abs(cart_x) <= 2.15
-  and tip_height >= 1.65
+  and tip_height >= 3.0
   and mean(cos(theta_1..theta_7)) >= 0.65
 ```
 
@@ -118,13 +133,15 @@ Failure:
 
 ```text
 cart out of bounds or non-finite state: terminate immediately
-tip/posture unhealthy: terminate after the warmup period
+swingup: tip/posture unhealthy is allowed so the policy can recover
+balance: tip/posture unhealthy terminates after the warmup period
 ```
 
 Success:
 
 ```text
-episode reaches max_episode_steps while still healthy
+swingup: healthy for 100 consecutive RL steps
+balance: episode reaches max_episode_steps while still healthy
 ```
 
 Reward uses the same health condition for the alive bonus, plus dense shaping:

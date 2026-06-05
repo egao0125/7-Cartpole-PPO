@@ -19,6 +19,7 @@ class TrainingVideoCallback(BaseCallback):
         video_dir: pathlib.Path,
         video_freq: int,
         max_episode_steps: int,
+        task: str,
         init_angle_noise: float,
         fps: int = 50,
         video_seconds: float = 20.0,
@@ -33,6 +34,7 @@ class TrainingVideoCallback(BaseCallback):
         self.video_dir = video_dir
         self.video_freq = video_freq
         self.max_episode_steps = max_episode_steps
+        self.task = task
         self.init_angle_noise = init_angle_noise
         self.fps = fps
         self.video_seconds = video_seconds
@@ -60,6 +62,7 @@ class TrainingVideoCallback(BaseCallback):
 
     def _record_video(self) -> None:
         config = EnvConfig(
+            task=self.task,
             max_episode_steps=self.max_episode_steps,
             init_angle_noise=self.init_angle_noise,
         )
@@ -97,6 +100,7 @@ class TrainingVideoCallback(BaseCallback):
                         "cart_x": info["cart_x"],
                         "uprightness": info["uprightness"],
                         "is_healthy": info["is_healthy"],
+                        "healthy_streak": info["healthy_streak"],
                         "healthy_frames": healthy_frames,
                         "policy_name": f"train_step_{self.num_timesteps} ep{episode}",
                     },

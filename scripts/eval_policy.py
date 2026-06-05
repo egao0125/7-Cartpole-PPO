@@ -23,7 +23,7 @@ from seven_cartpole.render import draw_hud
 
 
 def evaluate(args):
-    config = EnvConfig(max_episode_steps=args.max_episode_steps, init_angle_noise=args.init_angle_noise)
+    config = EnvConfig(task=args.task, max_episode_steps=args.max_episode_steps, init_angle_noise=args.init_angle_noise)
     env = SevenPendulumCartpoleEnv(
         config=config,
         render_mode="rgb_array" if args.output else None,
@@ -67,6 +67,7 @@ def evaluate(args):
                         "cart_x": info["cart_x"],
                         "uprightness": info["uprightness"],
                         "is_healthy": info["is_healthy"],
+                        "healthy_streak": info["healthy_streak"],
                         "healthy_frames": healthy_frames,
                         "policy_name": policy_name,
                     },
@@ -100,6 +101,7 @@ def main():
     parser.add_argument("--init-angle-noise", type=float, default=0.025)
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--device", default="auto")
+    parser.add_argument("--task", choices=["swingup", "balance"], default="swingup")
     parser.add_argument("--output", default=None)
     parser.add_argument("--fps", type=int, default=50)
     parser.add_argument("--render-every", type=int, default=1)

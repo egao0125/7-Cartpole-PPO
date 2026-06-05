@@ -27,7 +27,8 @@ def shaped_reward(
     healthy: bool,
     weights: RewardWeights = RewardWeights(),
 ) -> tuple[float, dict[str, float]]:
-    upright = float(np.mean(np.cos(angles)))
+    global_angles = np.cumsum(angles)
+    upright = float(np.mean(np.cos(global_angles)))
     angular_velocity_cost = float(np.sum(np.square(angular_velocities)))
     action_cost = float(action * action)
     cart_velocity_cost = float(cart_v * cart_v)

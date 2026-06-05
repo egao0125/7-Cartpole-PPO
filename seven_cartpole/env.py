@@ -18,14 +18,16 @@ DEFAULT_XML_PATH = ROOT / "seven_pendulum_cartpole.xml"
 @dataclass(frozen=True)
 class EnvConfig:
     xml_path: pathlib.Path = DEFAULT_XML_PATH
+    task: str = "swingup"
     frame_skip: int = 10
     max_episode_steps: int = 2000
     init_angle_noise: float = 0.025
     init_velocity_noise: float = 0.005
     cart_limit: float = 2.15
     health_warmup_steps: int = 50
-    min_tip_height: float = 1.65
+    min_tip_height: float = 3.0
     min_uprightness: float = 0.65
+    success_hold_steps: int = 100
     reward_weights: RewardWeights = RewardWeights()
 
 
@@ -60,6 +62,7 @@ class SevenPendulumCartpoleEnv(gym.Env):
 
         self._renderer = None
         self._step_count = 0
+        self._healthy_streak = 0
         self._last_tip_xz = np.zeros(2, dtype=np.float64)
 
     def reset(self, *, seed: int | None = None, options: dict | None = None):
@@ -71,11 +74,20 @@ class SevenPendulumCartpoleEnv(gym.Env):
         mujoco.mj_resetData(self.model, self.data)
         self.data.qpos[:] = 0.0
         self.data.qvel[:] = 0.0
-        self.data.qpos[1:] = self.np_random.normal(0.0, angle_noise, size=self.n_links)
+        if self.config.task == "swingup":
+            self.data.qpos[1] = np.pi
+            self.data.qpos[2:] = 0.0
+        elif self.config.task == "balance":
+            self.data.qpos[1:] = 0.0
+        else:
+            raise ValueError(f"Unknown task: {self.config.task}")
+
+        self.data.qpos[1:] += self.np_random.normal(0.0, angle_noise, size=self.n_links)
         self.data.qvel[:] = self.np_random.normal(0.0, velocity_noise, size=self.model.nv)
         mujoco.mj_forward(self.model, self.data)
 
         self._step_count = 0
+        self._healthy_streak = 0
         self._last_tip_xz = self._tip_xz()
         return self._get_obs(), self._info(action=0.0, reward_terms={})
 
@@ -89,6 +101,8 @@ class SevenPendulumCartpoleEnv(gym.Env):
         self._step_count += 1
         obs = self._get_obs()
         reward, reward_terms = self._reward(action_scalar)
+        health = self._health()
+        self._healthy_streak = self._healthy_streak + 1 if health["is_healthy"] else 0
         terminated = self._terminated()
         truncated = self._step_count >= self.config.max_episode_steps
         info = self._info(action=action_scalar, reward_terms=reward_terms, truncated=truncated)
@@ -145,6 +159,8 @@ class SevenPendulumCartpoleEnv(gym.Env):
         health = self._health()
         if not health["finite"] or not health["cart_ok"]:
             return True
+        if self.config.task == "swingup":
+            return False
         if self._step_count > self.config.health_warmup_steps and not health["is_healthy"]:
             return True
         return False
@@ -160,8 +176,9 @@ class SevenPendulumCartpoleEnv(gym.Env):
             "tip_height": self.tip_height,
             "uprightness": health["uprightness"],
             "is_healthy": health["is_healthy"],
+            "healthy_streak": self._healthy_streak,
             "health": health,
-            "success": bool(truncated and health["is_healthy"]),
+            "success": self._success(truncated=truncated, healthy=health["is_healthy"]),
             "reward_terms": reward_terms,
         }
 
@@ -169,7 +186,8 @@ class SevenPendulumCartpoleEnv(gym.Env):
         qpos = np.asarray(self.data.qpos, dtype=np.float64)
         qvel = np.asarray(self.data.qvel, dtype=np.float64)
         angles = qpos[1:]
-        uprightness = float(np.mean(np.cos(angles)))
+        global_angles = np.cumsum(angles)
+        uprightness = float(np.mean(np.cos(global_angles)))
         finite = bool(np.isfinite(qpos).all() and np.isfinite(qvel).all())
         cart_ok = abs(float(qpos[0])) <= self.config.cart_limit
         tip_ok = self.tip_height >= self.config.min_tip_height
@@ -187,6 +205,11 @@ class SevenPendulumCartpoleEnv(gym.Env):
             "min_tip_height": self.config.min_tip_height,
             "min_uprightness": self.config.min_uprightness,
         }
+
+    def _success(self, *, truncated: bool, healthy: bool):
+        if self.config.task == "swingup":
+            return bool(self._healthy_streak >= self.config.success_hold_steps)
+        return bool(truncated and healthy)
 
     def _tip_xz(self):
         tip = self.data.site_xpos[self.tip_site_id]

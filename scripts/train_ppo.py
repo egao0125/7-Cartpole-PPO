@@ -36,9 +36,9 @@ def sync_to_gcs(run_dir: pathlib.Path, gcs_path: str | None, run_name: str) -> N
     print(f"Synced run outputs to {destination}")
 
 
-def make_env(max_episode_steps: int, init_angle_noise: float):
+def make_env(task: str, max_episode_steps: int, init_angle_noise: float):
     def _factory():
-        config = EnvConfig(max_episode_steps=max_episode_steps, init_angle_noise=init_angle_noise)
+        config = EnvConfig(task=task, max_episode_steps=max_episode_steps, init_angle_noise=init_angle_noise)
         return Monitor(SevenPendulumCartpoleEnv(config=config))
 
     return _factory
@@ -56,7 +56,7 @@ def train(args):
     video_dir.mkdir(parents=True, exist_ok=True)
 
     env = make_vec_env(
-        make_env(args.max_episode_steps, args.init_angle_noise),
+        make_env(args.task, args.max_episode_steps, args.init_angle_noise),
         n_envs=args.n_envs,
         vec_env_cls=SubprocVecEnv if args.n_envs > 1 else None,
         seed=args.seed,
@@ -64,6 +64,7 @@ def train(args):
     eval_env = Monitor(
         SevenPendulumCartpoleEnv(
             config=EnvConfig(
+                task=args.task,
                 max_episode_steps=args.max_episode_steps,
                 init_angle_noise=args.init_angle_noise,
             )
@@ -120,6 +121,7 @@ def train(args):
                 video_dir=video_dir,
                 video_freq=args.video_freq,
                 max_episode_steps=args.video_max_episode_steps,
+                task=args.task,
                 init_angle_noise=args.init_angle_noise,
                 fps=args.video_fps,
                 video_seconds=args.video_seconds,
@@ -153,6 +155,7 @@ def main():
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--load", default=None)
     parser.add_argument("--device", default="auto")
+    parser.add_argument("--task", choices=["swingup", "balance"], default="swingup")
     parser.add_argument("--max-episode-steps", type=int, default=2000)
     parser.add_argument("--init-angle-noise", type=float, default=0.025)
 
