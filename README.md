@@ -156,6 +156,7 @@ VM_NAME=seven-cartpole-gpu \
 MACHINE_TYPE=g2-standard-16 \
 GPU_TYPE=nvidia-l4 \
 GPU_COUNT=1 \
+IMAGE_FAMILY=pytorch-2-7-cu128-ubuntu-2204-nvidia-570 \
 RUN_NAME=ppo_7link_gpu \
 TOTAL_STEPS=1000000 \
 N_ENVS=16 \

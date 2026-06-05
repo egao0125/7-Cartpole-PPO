@@ -8,6 +8,8 @@ MACHINE_TYPE="${MACHINE_TYPE:-g2-standard-16}"
 GPU_TYPE="${GPU_TYPE:-nvidia-l4}"
 GPU_COUNT="${GPU_COUNT:-1}"
 BOOT_DISK_SIZE="${BOOT_DISK_SIZE:-300GB}"
+IMAGE_PROJECT="${IMAGE_PROJECT:-deeplearning-platform-release}"
+IMAGE_FAMILY="${IMAGE_FAMILY:-pytorch-2-7-cu128-ubuntu-2204-nvidia-570}"
 BUCKET="${BUCKET:?Set BUCKET to a globally unique Cloud Storage bucket name}"
 RUN_NAME="${RUN_NAME:-ppo_7link_gpu}"
 TOTAL_STEPS="${TOTAL_STEPS:-1000000}"
@@ -31,6 +33,24 @@ fi
 
 gcloud config set project "$PROJECT"
 
+if ! gcloud compute images describe-from-family "$IMAGE_FAMILY" \
+  --project="$IMAGE_PROJECT" >/dev/null 2>&1; then
+  cat >&2 <<EOF
+Error: image family '${IMAGE_FAMILY}' was not found in project '${IMAGE_PROJECT}'.
+
+List available PyTorch GPU image families with:
+  gcloud compute images list \\
+    --project=${IMAGE_PROJECT} \\
+    --no-standard-images \\
+    --filter="family~'^pytorch.*cu'" \\
+    --format="table(family,name)"
+
+Then rerun with:
+  IMAGE_FAMILY=<family-from-list> bash cloud/create_gcp_gpu_vm.sh
+EOF
+  exit 1
+fi
+
 if ! gcloud storage buckets describe "gs://${BUCKET}" >/dev/null 2>&1; then
   gcloud storage buckets create "gs://${BUCKET}" --location="${ZONE%-*}"
 fi
@@ -51,8 +71,8 @@ gcloud compute instances create "$VM_NAME" \
   --zone="$ZONE" \
   --machine-type="$MACHINE_TYPE" \
   --accelerator="type=${GPU_TYPE},count=${GPU_COUNT}" \
-  --image-family=pytorch-latest-gpu \
-  --image-project=deeplearning-platform-release \
+  --image-family="$IMAGE_FAMILY" \
+  --image-project="$IMAGE_PROJECT" \
   --maintenance-policy=TERMINATE \
   --boot-disk-size="$BOOT_DISK_SIZE" \
   --boot-disk-type=pd-balanced \
