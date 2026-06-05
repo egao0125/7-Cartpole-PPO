@@ -30,8 +30,10 @@ The default task is now `swingup`:
 start: first link hanging down
 goal: swing the full chain upward
 success: hold the upright health condition for 100 consecutive RL steps
-failure: cart leaves bounds or simulation state becomes invalid
+failure: cart leaves bounds, simulation state becomes invalid, or a failed swing-up goes still while low
 ```
+
+The cart, wheels, joints, and links are visual/mass geoms with contacts disabled. This keeps the task focused on the cart motor and hinge dynamics instead of letting the chain wedge against the cart body.
 
 The old near-upright balancing setup is still available with:
 
