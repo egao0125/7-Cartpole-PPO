@@ -1,0 +1,20 @@
+.venv/
+__pycache__/
+*.pyc
+
+# Generated media
+*.mp4
+*.mov
+*.gif
+
+# RL outputs
+runs/
+logs/
+checkpoints/
+tensorboard/
+wandb/
+
+# Local/editor state
+.DS_Store
+.idea/
+.vscode/
