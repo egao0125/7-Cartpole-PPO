@@ -35,7 +35,8 @@
     <light pos="0 -4 5" dir="0 1 -1" diffuse="0.8 0.8 0.8"/>
     <camera name="side" pos="0 -6.2 1.9" xyaxes="1 0 0 0 0 1"/>
     <geom name="floor" type="plane" size="5 5 0.1" material="floor"/>
-    <geom name="rail" type="box" pos="0 0 1.76" size="2.4 0.025 0.025" rgba="0.55 0.58 0.62 1"/>
+    <geom name="rail" type="box" pos="0 0 1.76" size="2.4 0.025 0.025"
+          rgba="0.55 0.58 0.62 1" contype="0" conaffinity="0"/>
 
     <body name="cart" pos="0 0 1.85">
       <joint name="cart_slide" type="slide" axis="1 0 0" limited="true" range="-2.2 2.2" damping="0.08"/>
