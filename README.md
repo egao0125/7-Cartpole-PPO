@@ -147,7 +147,7 @@ balance: episode reaches max_episode_steps while still healthy
 Reward uses the same health condition for the alive bonus, plus dense shaping:
 
 ```text
-reward =
+balance reward =
   2.0   * tip_height
   + 0.5   * mean_link_uprightness
   - 0.3   * abs(cart_x)
@@ -156,6 +156,23 @@ reward =
   - 0.002 * sum(theta_dot_i^2)
   + alive_bonus_if_healthy
 ```
+
+Swing-up uses a different reward model. It is designed to avoid the "do nothing while hanging" local optimum:
+
+```text
+swingup reward =
+  normalized_tip_height
+  + global_link_uprightness
+  + positive_tip_height_progress
+  + upward_tip_velocity
+  + cart_motion_reward_while_low
+  + action_pump_reward_while_low
+  + healthy_hold_bonus_once_upright
+  - cart_position_penalty
+  - stabilization_action/velocity_penalties_only_when_high
+```
+
+The key distinction is that swing-up does not punish being down early. It rewards pumping energy into the system and only becomes conservative once the chain is near upright.
 
 ## Evaluate
 

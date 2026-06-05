@@ -8,7 +8,7 @@ import mujoco
 import numpy as np
 from gymnasium import spaces
 
-from seven_cartpole.rewards import RewardWeights, shaped_reward
+from seven_cartpole.rewards import RewardWeights, SwingUpRewardWeights, shaped_reward, swingup_reward
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -29,6 +29,7 @@ class EnvConfig:
     min_uprightness: float = 0.65
     success_hold_steps: int = 100
     reward_weights: RewardWeights = RewardWeights()
+    swingup_reward_weights: SwingUpRewardWeights = SwingUpRewardWeights()
 
 
 class SevenPendulumCartpoleEnv(gym.Env):
@@ -63,6 +64,8 @@ class SevenPendulumCartpoleEnv(gym.Env):
         self._renderer = None
         self._step_count = 0
         self._healthy_streak = 0
+        self._previous_tip_height = 0.0
+        self._reward_min_tip_height, self._reward_max_tip_height = self._tip_height_bounds()
         self._last_tip_xz = np.zeros(2, dtype=np.float64)
 
     def reset(self, *, seed: int | None = None, options: dict | None = None):
@@ -88,12 +91,14 @@ class SevenPendulumCartpoleEnv(gym.Env):
 
         self._step_count = 0
         self._healthy_streak = 0
+        self._previous_tip_height = self.tip_height
         self._last_tip_xz = self._tip_xz()
         return self._get_obs(), self._info(action=0.0, reward_terms={})
 
     def step(self, action):
         action_scalar = float(np.clip(np.asarray(action, dtype=np.float32)[0], -1.0, 1.0))
         self.data.ctrl[0] = action_scalar
+        self._previous_tip_height = self.tip_height
 
         for _ in range(self.config.frame_skip):
             mujoco.mj_step(self.model, self.data)
@@ -144,6 +149,21 @@ class SevenPendulumCartpoleEnv(gym.Env):
 
     def _reward(self, action: float):
         health = self._health()
+        if self.config.task == "swingup":
+            return swingup_reward(
+                tip_height=self.tip_height,
+                previous_tip_height=self._previous_tip_height,
+                min_tip_height=self._reward_min_tip_height,
+                max_tip_height=self._reward_max_tip_height,
+                cart_x=float(self.data.qpos[0]),
+                cart_v=float(self.data.qvel[0]),
+                angles=np.asarray(self.data.qpos[1:], dtype=np.float64),
+                angular_velocities=np.asarray(self.data.qvel[1:], dtype=np.float64),
+                action=action,
+                healthy=health["is_healthy"],
+                weights=self.config.swingup_reward_weights,
+            )
+
         return shaped_reward(
             tip_height=self.tip_height,
             cart_x=float(self.data.qpos[0]),
@@ -214,6 +234,20 @@ class SevenPendulumCartpoleEnv(gym.Env):
     def _tip_xz(self):
         tip = self.data.site_xpos[self.tip_site_id]
         return np.array([tip[0], tip[2]], dtype=np.float64)
+
+    def _tip_height_bounds(self):
+        tmp = mujoco.MjData(self.model)
+        tmp.qpos[:] = 0.0
+        tmp.qvel[:] = 0.0
+        mujoco.mj_forward(self.model, tmp)
+        upright_height = float(tmp.site_xpos[self.tip_site_id, 2])
+
+        tmp.qpos[:] = 0.0
+        tmp.qvel[:] = 0.0
+        tmp.qpos[1] = np.pi
+        mujoco.mj_forward(self.model, tmp)
+        hanging_height = float(tmp.site_xpos[self.tip_site_id, 2])
+        return hanging_height, upright_height
 
     @property
     def tip_height(self):
