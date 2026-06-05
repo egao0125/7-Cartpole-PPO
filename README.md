@@ -79,10 +79,28 @@ python3 scripts/train_ppo.py \
   --n-envs 8 \
   --run-name ppo_7link \
   --video-freq 50000 \
-  --video-max-episode-steps 500
+  --video-seconds 20
 ```
 
 Set `--video-freq 0` to disable periodic videos.
+
+To upload each training video to a GitHub Release, set `GITHUB_TOKEN` in the training environment and pass `--github-repo`:
+
+```bash
+export GITHUB_TOKEN=github_pat_or_classic_token_with_repo_access
+
+python3 scripts/train_ppo.py \
+  --run-name ppo_7link_runpod \
+  --total-steps 1000000 \
+  --n-envs 16 \
+  --device cuda \
+  --video-freq 50000 \
+  --video-seconds 20 \
+  --github-repo egao0125/7-Cartpole-PPO \
+  --github-release-tag ppo-7link-training-videos
+```
+
+Videos are uploaded as assets on the `ppo-7link-training-videos` GitHub Release. This avoids committing MP4 files into the repository history.
 
 ## Health, Failure, And Success
 

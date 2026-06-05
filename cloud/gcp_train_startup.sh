@@ -8,6 +8,7 @@ TOTAL_STEPS="${TOTAL_STEPS:-1000000}"
 N_ENVS="${N_ENVS:-16}"
 VIDEO_FREQ="${VIDEO_FREQ:-50000}"
 VIDEO_MAX_EPISODE_STEPS="${VIDEO_MAX_EPISODE_STEPS:-500}"
+VIDEO_SECONDS="${VIDEO_SECONDS:-20}"
 GCS_PATH="${GCS_PATH:-}"
 
 export MUJOCO_GL=egl
@@ -50,6 +51,7 @@ fi
   --device cuda \
   --video-freq "$VIDEO_FREQ" \
   --video-max-episode-steps "$VIDEO_MAX_EPISODE_STEPS" \
+  --video-seconds "$VIDEO_SECONDS" \
   --checkpoint-freq 100000 \
   --eval-freq 50000 \
   --eval-episodes 5 \

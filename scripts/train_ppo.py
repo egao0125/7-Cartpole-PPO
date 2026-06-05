@@ -122,9 +122,13 @@ def train(args):
                 max_episode_steps=args.video_max_episode_steps,
                 init_angle_noise=args.init_angle_noise,
                 fps=args.video_fps,
+                video_seconds=args.video_seconds,
                 width=args.video_width,
                 height=args.video_height,
                 seed=args.seed + 10_000,
+                github_repo=args.github_repo,
+                github_token=os.environ.get("GITHUB_TOKEN"),
+                github_release_tag=args.github_release_tag,
             )
         )
 
@@ -169,9 +173,12 @@ def main():
     parser.add_argument("--video-freq", type=int, default=100_000)
     parser.add_argument("--video-max-episode-steps", type=int, default=500)
     parser.add_argument("--video-fps", type=int, default=50)
+    parser.add_argument("--video-seconds", type=float, default=20.0)
     parser.add_argument("--video-width", type=int, default=1280)
     parser.add_argument("--video-height", type=int, default=720)
     parser.add_argument("--gcs-path", default=None, help="Optional gs:// bucket prefix to sync run outputs after training.")
+    parser.add_argument("--github-repo", default=None, help="Optional owner/repo for uploading training videos to a GitHub Release.")
+    parser.add_argument("--github-release-tag", default="ppo-7link-training-videos")
     train(parser.parse_args())
 
 
