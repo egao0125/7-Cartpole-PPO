@@ -141,7 +141,44 @@ python3 scripts/eval_policy.py \
 
 ## GPU And Cloud Storage
 
-On a CUDA machine, Stable-Baselines3/PyTorch can use GPU automatically:
+This should run on Google Cloud, not on a local Mac, for serious training.
+
+From Google Cloud Shell, create a GPU VM and start training:
+
+```bash
+git clone https://github.com/egao0125/7-Cartpole-PPO.git
+cd 7-Cartpole-PPO
+
+PROJECT=your-gcp-project-id \
+BUCKET=your-unique-cartpole-bucket-name \
+ZONE=us-central1-a \
+VM_NAME=seven-cartpole-gpu \
+MACHINE_TYPE=g2-standard-16 \
+GPU_TYPE=nvidia-l4 \
+GPU_COUNT=1 \
+RUN_NAME=ppo_7link_gpu \
+TOTAL_STEPS=1000000 \
+N_ENVS=16 \
+bash cloud/create_gcp_gpu_vm.sh
+```
+
+The VM startup script clones this repo, installs dependencies, verifies CUDA, starts PPO, writes TensorBoard logs/videos/checkpoints, and syncs run outputs to Cloud Storage.
+
+To watch logs from Cloud Shell:
+
+```bash
+gcloud compute ssh seven-cartpole-gpu \
+  --zone=us-central1-a \
+  --command='tail -f /opt/7-Cartpole-PPO/runs/ppo_7link_gpu/train.log'
+```
+
+To list videos/checkpoints in Cloud Storage:
+
+```bash
+gcloud storage ls gs://your-unique-cartpole-bucket-name/seven-cartpole/runs/ppo_7link_gpu/**
+```
+
+On any CUDA machine, Stable-Baselines3/PyTorch can use GPU:
 
 ```bash
 python3 scripts/train_ppo.py \
