@@ -87,6 +87,7 @@ def swingup_reward(
     action_cost = float(action * action)
     angular_velocity_cost = float(np.sum(np.square(angular_velocities)))
 
+    cart_position_weight = weights.cart_position if near_upright else 0.0
     action_weight = weights.action_when_high if near_upright else weights.action_when_low
     angular_velocity_weight = (
         weights.angular_velocity_when_high if near_upright else weights.angular_velocity_when_low
@@ -100,7 +101,7 @@ def swingup_reward(
         "cart_motion_when_low": weights.cart_motion_when_low * abs(float(cart_v)) * low_height,
         "action_pump_when_low": weights.action_pump_when_low * abs(float(action)) * low_height,
         "healthy_hold": weights.healthy_hold if healthy else 0.0,
-        "cart_position": -weights.cart_position * abs(float(cart_x)),
+        "cart_position": -cart_position_weight * abs(float(cart_x)),
         "action": -action_weight * action_cost,
         "angular_velocity": -angular_velocity_weight * angular_velocity_cost,
     }

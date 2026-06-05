@@ -168,11 +168,11 @@ swingup reward =
   + cart_motion_reward_while_low
   + action_pump_reward_while_low
   + healthy_hold_bonus_once_upright
-  - cart_position_penalty
+  - cart_position_penalty_only_when_high
   - stabilization_action/velocity_penalties_only_when_high
 ```
 
-The key distinction is that swing-up does not punish being down early. It rewards pumping energy into the system and only becomes conservative once the chain is near upright.
+The key distinction is that swing-up does not punish being down early. It rewards pumping energy into the system and only becomes conservative once the chain is near upright. The cart still has a hard track limit; crossing that bound resets the episode.
 
 ## Evaluate
 
