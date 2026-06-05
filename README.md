@@ -129,12 +129,16 @@ healthy =
   and abs(cart_x) <= 2.15
   and tip_height >= 3.0
   and mean(cos(theta_1..theta_7)) >= 0.65
+  and tip_speed <= 0.8
+  and abs(cart_v) <= 0.7
+  and max(abs(theta_dot_1..7)) <= 3.0
 ```
 
 Failure:
 
 ```text
 cart out of bounds or non-finite state: terminate immediately
+violent spin: terminate immediately
 swingup: tip/posture unhealthy is allowed so the policy can recover
 swingup: low, nearly motionless dead-hang state resets after a warmup window
 balance: tip/posture unhealthy terminates after the warmup period
@@ -172,10 +176,11 @@ swingup reward =
   + action_pump_reward_while_low
   + healthy_hold_bonus_once_upright
   - cart_position_penalty_only_when_high
-  - stabilization_action/cart/tip/angular_velocity_penalties_only_when_high
+  - stabilization_action/cart/tip/angular_velocity_penalties_when_high
+  - light_angular_velocity_penalty_while_low
 ```
 
-The key distinction is that swing-up does not punish being down early. It rewards pumping energy into the system and only becomes conservative once the chain is near upright. Once high, the reward stops paying for upward motion and starts penalizing tip speed, cart speed, action magnitude, and joint angular velocity so the policy learns to catch and damp the chain instead of endlessly swinging. The cart still has a hard track limit; crossing that bound resets the episode. A failed attempt that falls back to a low, nearly static dead-hang also resets so training does not spend long rollouts doing nothing.
+The key distinction is that swing-up does not punish being down early, but it no longer permits arbitrary spinning. It rewards pumping energy into the system while low, applies a light angular-velocity cost throughout the episode, and becomes strongly conservative once the chain is near upright. Once high, the reward stops paying for upward motion and starts penalizing tip speed, cart speed, action magnitude, and joint angular velocity so the policy learns to catch and damp the chain instead of endlessly swinging. The cart still has a hard track limit; crossing that bound resets the episode. A failed attempt that falls back to a low, nearly static dead-hang also resets so training does not spend long rollouts doing nothing.
 
 ## Evaluate
 

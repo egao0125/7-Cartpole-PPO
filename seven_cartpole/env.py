@@ -27,6 +27,11 @@ class EnvConfig:
     health_warmup_steps: int = 50
     min_tip_height: float = 3.0
     min_uprightness: float = 0.65
+    max_healthy_tip_speed: float = 0.8
+    max_healthy_cart_speed: float = 0.7
+    max_healthy_angular_velocity: float = 3.0
+    max_safe_tip_speed: float = 8.0
+    max_safe_angular_velocity: float = 20.0
     success_hold_steps: int = 100
     swingup_stuck_warmup_steps: int = 150
     swingup_stuck_reset_steps: int = 125
@@ -192,7 +197,7 @@ class SevenPendulumCartpoleEnv(gym.Env):
         if not health["finite"] or not health["cart_ok"]:
             return True
         if self.config.task == "swingup":
-            return self._swingup_is_stuck()
+            return not health["safe_velocity"] or self._swingup_is_stuck()
         if self._step_count > self.config.health_warmup_steps and not health["is_healthy"]:
             return True
         return False
@@ -206,6 +211,8 @@ class SevenPendulumCartpoleEnv(gym.Env):
             "cart_x": float(self.data.qpos[0]),
             "cart_v": float(self.data.qvel[0]),
             "tip_height": self.tip_height,
+            "tip_speed": self._last_tip_speed,
+            "max_angular_velocity": health["max_angular_velocity"],
             "uprightness": health["uprightness"],
             "is_healthy": health["is_healthy"],
             "healthy_streak": self._healthy_streak,
@@ -223,20 +230,39 @@ class SevenPendulumCartpoleEnv(gym.Env):
         uprightness = float(np.mean(np.cos(global_angles)))
         finite = bool(np.isfinite(qpos).all() and np.isfinite(qvel).all())
         cart_ok = abs(float(qpos[0])) <= self.config.cart_limit
+        max_angular_velocity = float(np.max(np.abs(qvel[1:]))) if qvel[1:].size else 0.0
         tip_ok = self.tip_height >= self.config.min_tip_height
         posture_ok = uprightness >= self.config.min_uprightness
-        is_healthy = finite and cart_ok and tip_ok and posture_ok
+        velocity_ok = (
+            self._last_tip_speed <= self.config.max_healthy_tip_speed
+            and abs(float(qvel[0])) <= self.config.max_healthy_cart_speed
+            and max_angular_velocity <= self.config.max_healthy_angular_velocity
+        )
+        safe_velocity = (
+            self._last_tip_speed <= self.config.max_safe_tip_speed
+            and max_angular_velocity <= self.config.max_safe_angular_velocity
+        )
+        is_healthy = finite and cart_ok and tip_ok and posture_ok and velocity_ok
         return {
             "finite": finite,
             "cart_ok": cart_ok,
             "tip_ok": tip_ok,
             "posture_ok": posture_ok,
+            "velocity_ok": velocity_ok,
+            "safe_velocity": safe_velocity,
             "is_healthy": is_healthy,
             "uprightness": uprightness,
             "tip_height": self.tip_height,
+            "tip_speed": self._last_tip_speed,
+            "max_angular_velocity": max_angular_velocity,
             "cart_limit": self.config.cart_limit,
             "min_tip_height": self.config.min_tip_height,
             "min_uprightness": self.config.min_uprightness,
+            "max_healthy_tip_speed": self.config.max_healthy_tip_speed,
+            "max_healthy_cart_speed": self.config.max_healthy_cart_speed,
+            "max_healthy_angular_velocity": self.config.max_healthy_angular_velocity,
+            "max_safe_tip_speed": self.config.max_safe_tip_speed,
+            "max_safe_angular_velocity": self.config.max_safe_angular_velocity,
         }
 
     def _success(self, *, truncated: bool, healthy: bool):
