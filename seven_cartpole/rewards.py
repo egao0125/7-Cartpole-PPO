@@ -27,9 +27,11 @@ class SwingUpRewardWeights:
     healthy_hold: float = 2.0
     cart_position: float = 0.15
     action_when_low: float = 0.0
-    action_when_high: float = 0.01
+    action_when_high: float = 0.03
+    cart_velocity_when_high: float = 0.04
+    tip_speed_when_high: float = 0.08
     angular_velocity_when_low: float = 0.0
-    angular_velocity_when_high: float = 0.002
+    angular_velocity_when_high: float = 0.01
 
 
 def shaped_reward(
@@ -69,6 +71,7 @@ def swingup_reward(
     max_tip_height: float,
     cart_x: float,
     cart_v: float,
+    tip_speed: float,
     angles: np.ndarray,
     angular_velocities: np.ndarray,
     action: float,
@@ -85,10 +88,14 @@ def swingup_reward(
 
     near_upright = normalized_height > 0.75
     action_cost = float(action * action)
+    cart_velocity_cost = float(cart_v * cart_v)
+    tip_speed_cost = float(tip_speed * tip_speed)
     angular_velocity_cost = float(np.sum(np.square(angular_velocities)))
 
     cart_position_weight = weights.cart_position if near_upright else 0.0
     action_weight = weights.action_when_high if near_upright else weights.action_when_low
+    cart_velocity_weight = weights.cart_velocity_when_high if near_upright else 0.0
+    tip_speed_weight = weights.tip_speed_when_high if near_upright else 0.0
     angular_velocity_weight = (
         weights.angular_velocity_when_high if near_upright else weights.angular_velocity_when_low
     )
@@ -96,13 +103,15 @@ def swingup_reward(
     terms = {
         "height": weights.height * normalized_height,
         "upright": weights.upright * ((upright + 1.0) * 0.5),
-        "height_progress": weights.height_progress * upward_tip_velocity,
-        "upward_tip_velocity": weights.upward_tip_velocity * upward_tip_velocity,
+        "height_progress": weights.height_progress * upward_tip_velocity * low_height,
+        "upward_tip_velocity": weights.upward_tip_velocity * upward_tip_velocity * low_height,
         "cart_motion_when_low": weights.cart_motion_when_low * abs(float(cart_v)) * low_height,
         "action_pump_when_low": weights.action_pump_when_low * abs(float(action)) * low_height,
         "healthy_hold": weights.healthy_hold if healthy else 0.0,
         "cart_position": -cart_position_weight * abs(float(cart_x)),
         "action": -action_weight * action_cost,
+        "cart_velocity": -cart_velocity_weight * cart_velocity_cost,
+        "tip_speed": -tip_speed_weight * tip_speed_cost,
         "angular_velocity": -angular_velocity_weight * angular_velocity_cost,
     }
     return float(sum(terms.values())), terms

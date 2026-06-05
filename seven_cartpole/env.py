@@ -168,6 +168,7 @@ class SevenPendulumCartpoleEnv(gym.Env):
                 max_tip_height=self._reward_max_tip_height,
                 cart_x=float(self.data.qpos[0]),
                 cart_v=float(self.data.qvel[0]),
+                tip_speed=self._last_tip_speed,
                 angles=np.asarray(self.data.qpos[1:], dtype=np.float64),
                 angular_velocities=np.asarray(self.data.qvel[1:], dtype=np.float64),
                 action=action,

@@ -166,16 +166,16 @@ Swing-up uses a different reward model. It is designed to avoid the "do nothing 
 swingup reward =
   normalized_tip_height
   + global_link_uprightness
-  + positive_tip_height_progress
-  + upward_tip_velocity
+  + positive_tip_height_progress_while_low
+  + upward_tip_velocity_while_low
   + cart_motion_reward_while_low
   + action_pump_reward_while_low
   + healthy_hold_bonus_once_upright
   - cart_position_penalty_only_when_high
-  - stabilization_action/velocity_penalties_only_when_high
+  - stabilization_action/cart/tip/angular_velocity_penalties_only_when_high
 ```
 
-The key distinction is that swing-up does not punish being down early. It rewards pumping energy into the system and only becomes conservative once the chain is near upright. The cart still has a hard track limit; crossing that bound resets the episode. A failed attempt that falls back to a low, nearly static dead-hang also resets so training does not spend long rollouts doing nothing.
+The key distinction is that swing-up does not punish being down early. It rewards pumping energy into the system and only becomes conservative once the chain is near upright. Once high, the reward stops paying for upward motion and starts penalizing tip speed, cart speed, action magnitude, and joint angular velocity so the policy learns to catch and damp the chain instead of endlessly swinging. The cart still has a hard track limit; crossing that bound resets the episode. A failed attempt that falls back to a low, nearly static dead-hang also resets so training does not spend long rollouts doing nothing.
 
 ## Evaluate
 
