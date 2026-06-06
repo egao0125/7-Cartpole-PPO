@@ -141,6 +141,8 @@ cart out of bounds or non-finite state: terminate immediately
 extreme violent spin: terminate immediately
 swingup: tip/posture unhealthy is allowed so the policy can recover
 swingup: low, nearly motionless dead-hang state resets after a warmup window
+swingup: no meaningful height progress by step 200 resets the episode
+swingup: reaching mid-height and then falling back low for 50 steps resets the episode
 balance: tip/posture unhealthy terminates after the warmup period
 ```
 
@@ -168,7 +170,8 @@ Swing-up uses a different reward model. It is designed to avoid the "do nothing 
 
 ```text
 swingup reward =
-  normalized_tip_height
+  - small_time_penalty
+  + normalized_tip_height
   + global_link_uprightness
   + positive_tip_height_progress_while_low
   + upward_tip_velocity_while_low
@@ -180,7 +183,7 @@ swingup reward =
   - light_angular_velocity_penalty_while_low
 ```
 
-The key distinction is that swing-up does not punish being down early, but it no longer permits arbitrary spinning. The MuJoCo hinges include physical damping, the reward applies a light angular-velocity cost throughout the episode, and the environment resets only extreme spin states. Once high, the reward stops paying for upward motion and starts penalizing tip speed, cart speed, action magnitude, and joint angular velocity so the policy learns to catch and damp the chain instead of endlessly swinging. The cart still has a hard track limit; crossing that bound resets the episode. A failed attempt that falls back to a low, nearly static dead-hang also resets so training does not spend long rollouts doing nothing.
+The key distinction is that swing-up does not punish being down early, but it no longer permits arbitrary spinning or endless low swinging. The MuJoCo hinges include physical damping, the reward applies a light angular-velocity cost throughout the episode, and the environment resets only extreme spin states. A small per-step time cost encourages faster solutions. Once high, the reward stops paying for upward motion and starts penalizing tip speed, cart speed, action magnitude, and joint angular velocity so the policy learns to catch and damp the chain instead of endlessly swinging. The cart still has a hard track limit; crossing that bound resets the episode. A failed attempt that falls back to a low, nearly static dead-hang also resets so training does not spend long rollouts doing nothing.
 
 ## Evaluate
 

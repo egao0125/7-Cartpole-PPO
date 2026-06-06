@@ -38,6 +38,11 @@ class EnvConfig:
     swingup_stuck_height_fraction: float = 0.25
     swingup_stuck_tip_speed: float = 0.08
     swingup_stuck_cart_speed: float = 0.03
+    swingup_progress_warmup_steps: int = 200
+    swingup_min_progress_height_fraction: float = 0.35
+    swingup_attempt_height_fraction: float = 0.55
+    swingup_failed_height_fraction: float = 0.25
+    swingup_failed_reset_steps: int = 50
     reward_weights: RewardWeights = RewardWeights()
     swingup_reward_weights: SwingUpRewardWeights = SwingUpRewardWeights()
 
@@ -79,6 +84,8 @@ class SevenPendulumCartpoleEnv(gym.Env):
         self._last_tip_xz = np.zeros(2, dtype=np.float64)
         self._last_tip_speed = 0.0
         self._swingup_stuck_steps = 0
+        self._max_normalized_tip_height = 0.0
+        self._swingup_failed_low_steps = 0
 
     def reset(self, *, seed: int | None = None, options: dict | None = None):
         super().reset(seed=seed)
@@ -107,6 +114,8 @@ class SevenPendulumCartpoleEnv(gym.Env):
         self._last_tip_xz = self._tip_xz()
         self._last_tip_speed = 0.0
         self._swingup_stuck_steps = 0
+        self._max_normalized_tip_height = self._normalized_tip_height()
+        self._swingup_failed_low_steps = 0
         return self._get_obs(), self._info(action=0.0, reward_terms={})
 
     def step(self, action):
@@ -122,6 +131,7 @@ class SevenPendulumCartpoleEnv(gym.Env):
         reward, reward_terms = self._reward(action_scalar)
         health = self._health()
         self._healthy_streak = self._healthy_streak + 1 if health["is_healthy"] else 0
+        self._update_swingup_progress_state()
         self._update_swingup_stuck_state()
         terminated = self._terminated()
         truncated = self._step_count >= self.config.max_episode_steps
@@ -197,7 +207,12 @@ class SevenPendulumCartpoleEnv(gym.Env):
         if not health["finite"] or not health["cart_ok"]:
             return True
         if self.config.task == "swingup":
-            return not health["safe_velocity"] or self._swingup_is_stuck()
+            return (
+                not health["safe_velocity"]
+                or self._swingup_is_stuck()
+                or self._swingup_has_no_progress()
+                or self._swingup_attempt_failed()
+            )
         if self._step_count > self.config.health_warmup_steps and not health["is_healthy"]:
             return True
         return False
@@ -218,6 +233,8 @@ class SevenPendulumCartpoleEnv(gym.Env):
             "healthy_streak": self._healthy_streak,
             "health": health,
             "swingup_stuck_steps": self._swingup_stuck_steps,
+            "max_normalized_tip_height": self._max_normalized_tip_height,
+            "swingup_failed_low_steps": self._swingup_failed_low_steps,
             "success": self._success(truncated=truncated, healthy=health["is_healthy"]),
             "reward_terms": reward_terms,
         }
@@ -270,6 +287,20 @@ class SevenPendulumCartpoleEnv(gym.Env):
             return bool(self._healthy_streak >= self.config.success_hold_steps)
         return bool(truncated and healthy)
 
+    def _update_swingup_progress_state(self):
+        if self.config.task != "swingup":
+            return
+
+        normalized_tip_height = self._normalized_tip_height()
+        self._max_normalized_tip_height = max(self._max_normalized_tip_height, normalized_tip_height)
+
+        attempted = self._max_normalized_tip_height >= self.config.swingup_attempt_height_fraction
+        failed_low = normalized_tip_height <= self.config.swingup_failed_height_fraction
+        if attempted and failed_low:
+            self._swingup_failed_low_steps += 1
+        else:
+            self._swingup_failed_low_steps = 0
+
     def _update_swingup_stuck_state(self):
         if self.config.task != "swingup" or self._step_count < self.config.swingup_stuck_warmup_steps:
             self._swingup_stuck_steps = 0
@@ -288,6 +319,15 @@ class SevenPendulumCartpoleEnv(gym.Env):
 
     def _swingup_is_stuck(self):
         return self._swingup_stuck_steps >= self.config.swingup_stuck_reset_steps
+
+    def _swingup_has_no_progress(self):
+        return (
+            self._step_count >= self.config.swingup_progress_warmup_steps
+            and self._max_normalized_tip_height < self.config.swingup_min_progress_height_fraction
+        )
+
+    def _swingup_attempt_failed(self):
+        return self._swingup_failed_low_steps >= self.config.swingup_failed_reset_steps
 
     def _normalized_tip_height(self):
         height_range = max(self._reward_max_tip_height - self._reward_min_tip_height, 1e-6)

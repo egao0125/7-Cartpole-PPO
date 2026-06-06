@@ -18,6 +18,7 @@ class RewardWeights:
 
 @dataclass(frozen=True)
 class SwingUpRewardWeights:
+    time: float = 0.01
     height: float = 4.0
     upright: float = 1.0
     height_progress: float = 12.0
@@ -101,6 +102,7 @@ def swingup_reward(
     )
 
     terms = {
+        "time": -weights.time,
         "height": weights.height * normalized_height,
         "upright": weights.upright * ((upright + 1.0) * 0.5),
         "height_progress": weights.height_progress * upward_tip_velocity * low_height,
