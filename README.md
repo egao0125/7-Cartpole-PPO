@@ -171,19 +171,22 @@ Swing-up uses a different reward model. It is designed to avoid the "do nothing 
 ```text
 swingup reward =
   - small_time_penalty
-  + normalized_tip_height
-  + global_link_uprightness
+  + low/mid_height_shaping
+  + low/mid_upright_shaping
+  + calm_high_tip_height
+  + calm_high_uprightness
   + positive_tip_height_progress_while_low
   + upward_tip_velocity_while_low
   + cart_motion_reward_while_low
   + action_pump_reward_while_low
   + healthy_hold_bonus_once_upright
+  - fast_high_pose_penalty
   - cart_position_penalty_only_when_high
   - stabilization_action/cart/tip/angular_velocity_penalties_when_high
   - light_angular_velocity_penalty_while_low
 ```
 
-The key distinction is that swing-up does not punish being down early, but it no longer permits arbitrary spinning or endless low swinging. The MuJoCo hinges include physical damping, the reward applies a light angular-velocity cost throughout the episode, and the environment resets only extreme spin states. A small per-step time cost encourages faster solutions. Once high, the reward stops paying for upward motion and starts penalizing tip speed, cart speed, action magnitude, and joint angular velocity so the policy learns to catch and damp the chain instead of endlessly swinging. The cart still has a hard track limit; crossing that bound resets the episode. A failed attempt that falls back to a low, nearly static dead-hang also resets so training does not spend long rollouts doing nothing.
+The key distinction is that swing-up does not punish being down early, but it no longer permits arbitrary spinning or endless low swinging. The MuJoCo hinges include physical damping, the reward applies a light angular-velocity cost throughout the episode, and the environment resets only extreme spin states. A small per-step time cost encourages faster solutions. Low and mid-height states receive shaping so the policy can learn to swing up. High states are different: height and uprightness only pay well when tip speed, cart speed, and joint angular velocity are calm. Fast passes through the top receive a fast-high penalty. The cart still has a hard track limit; crossing that bound resets the episode. A failed attempt that falls back to a low, nearly static dead-hang also resets so training does not spend long rollouts doing nothing.
 
 ## Evaluate
 

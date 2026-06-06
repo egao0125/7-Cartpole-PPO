@@ -21,11 +21,13 @@ class SwingUpRewardWeights:
     time: float = 0.01
     height: float = 4.0
     upright: float = 1.0
+    calm_height: float = 3.0
+    calm_upright: float = 2.0
     height_progress: float = 12.0
     upward_tip_velocity: float = 0.4
     cart_motion_when_low: float = 0.05
     action_pump_when_low: float = 0.01
-    healthy_hold: float = 2.0
+    healthy_hold: float = 6.0
     cart_position: float = 0.15
     action_when_low: float = 0.0
     action_when_high: float = 0.04
@@ -86,12 +88,21 @@ def swingup_reward(
     height_delta = float(tip_height - previous_tip_height)
     upward_tip_velocity = max(height_delta, 0.0)
     low_height = 1.0 - normalized_height
+    high_gate = normalized_height * normalized_height
 
     near_upright = normalized_height > 0.75
     action_cost = float(action * action)
     cart_velocity_cost = float(cart_v * cart_v)
     tip_speed_cost = float(tip_speed * tip_speed)
     angular_velocity_cost = float(np.sum(np.square(angular_velocities)))
+    upright_score = (upright + 1.0) * 0.5
+    calmness = 1.0 / (
+        1.0
+        + 0.75 * tip_speed_cost
+        + 0.08 * angular_velocity_cost
+        + 0.25 * cart_velocity_cost
+    )
+    fast_high_penalty = high_gate * (1.0 - calmness)
 
     cart_position_weight = weights.cart_position if near_upright else 0.0
     action_weight = weights.action_when_high if near_upright else weights.action_when_low
@@ -103,8 +114,10 @@ def swingup_reward(
 
     terms = {
         "time": -weights.time,
-        "height": weights.height * normalized_height,
-        "upright": weights.upright * ((upright + 1.0) * 0.5),
+        "height": weights.height * normalized_height * (1.0 - high_gate),
+        "upright": weights.upright * upright_score * (1.0 - high_gate),
+        "calm_height": weights.calm_height * normalized_height * high_gate * calmness,
+        "calm_upright": weights.calm_upright * upright_score * high_gate * calmness,
         "height_progress": weights.height_progress * upward_tip_velocity * low_height,
         "upward_tip_velocity": weights.upward_tip_velocity * upward_tip_velocity * low_height,
         "cart_motion_when_low": weights.cart_motion_when_low * abs(float(cart_v)) * low_height,
@@ -115,5 +128,6 @@ def swingup_reward(
         "cart_velocity": -cart_velocity_weight * cart_velocity_cost,
         "tip_speed": -tip_speed_weight * tip_speed_cost,
         "angular_velocity": -angular_velocity_weight * angular_velocity_cost,
+        "fast_high": -weights.height * fast_high_penalty,
     }
     return float(sum(terms.values())), terms
